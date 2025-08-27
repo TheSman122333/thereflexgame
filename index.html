@@ -9,13 +9,16 @@
     font-family: 'Google Sans Mono', monospace; 
     display: flex; justify-content: center; align-items: center; 
     height: 100vh; margin: 0; 
-    background-image: url("clodge.jpg");
+    background-image: url("wallp3.jpg");
     background-size: cover;
     background-position: center;  
     background-repeat: no-repeat;
   }
   #game-container { text-align: center; max-width: 600px; }
   h1 { margin-bottom: 10px; color: #00ff99; }
+  #score, #high-score, #strikes, #word-container, #timer, #final-score, #restart-btn {
+    display: none;
+  }
   #score, #high-score { font-size: 1.2rem; margin: 5px; }
   #strikes { font-size: 1.5rem; margin: 10px; color: red; }
   #word-container { 
@@ -26,20 +29,29 @@
   .incorrect { color: red; text-decoration: underline; }
   #timer { font-size: 1.2rem; margin-top: 10px; }
   #final-score { font-size: 1.5rem; margin-top: 20px; color: yellow; }
-  #restart-btn { 
+  button { 
     font-size: 1.2rem; padding: 10px 20px; 
     font-family: 'Google Sans Mono', monospace; 
     margin-top: 20px; cursor: pointer; 
     border: none; border-radius: 5px; 
     background: #00ff99; color: #111; 
   }
+  input[type="file"] {
+    display: none;
+  }
 
-  #instructions { 
-    font-size: 1.2rem; padding: 10px 20px; 
-    font-family: 'Google Sans Mono', monospace; 
-    margin-top: 20px; cursor: pointer; 
-    border: none; border-radius: 5px; 
-    background: #00ff99; color: #111; 
+  label[for="bg-upload"] {
+    font-size: 1.2rem;
+    padding: 10px 20px;
+    font-family: 'Google Sans Mono', monospace;
+    margin-top: 20px;
+    cursor: pointer;
+    border: none;
+    border-radius: 5px;
+    background: #00ff99;
+    color: #111;
+    display: inline-block;
+    text-align: center;
   }
 </style>
 </head>
@@ -52,146 +64,192 @@
   <div id="word-container"></div>
   <div id="timer">Time left: 5s</div>
   <div id="final-score"></div>
-  <button id="restart-btn" style="display:none;">Restart</button>
-  <button id="instructions" onclick="alert('')">Instructions</button>
-
+  <button id="start-btn">Start</button>
+  <button id="restart-btn">Restart</button>
+  <button id="instructions" onclick="alert(
+    '⚡ The Reflex Game Instructions ⚡\n\n' +
+    '1. A random word will appear on the screen.\n' +
+    '2. You must type the word exactly before the timer runs out.\n' +
+    '3. Each correct word increases your score and the game gets faster.\n' +
+    '4. If you fail to type the word in time or make mistakes, you lose a strike.\n' +
+    '5. You start with 3 strikes — lose them all and the game is over.\n' +
+    '6. Press Backspace to fix mistakes while typing.\n' +
+    '7. Try to beat your High Score and test your reflexes!\n'
+    )">Instructions</button>
+    <input type="file" id="bg-upload" accept="image/*">
+    <label for="bg-upload">Upload Background</label>
 </div>
 
 <script>
-document.addEventListener("DOMContentLoaded", () => {
-  const words = [
-    "apple","banana","cherry","dragon","elephant","funny","guitar","happiness",
-    "island","jungle","kite","lemon","mountain","nectar","ocean","piano",
-    "rainbow","sunshine","tiger","umbrella","violet","waterfall","xylophone",
-    "yogurt","zebra","adventure","butterfly","candle","dolphin","emerald","feather",
-    "galaxy","horizon","infinity","jasmine","koala","lighthouse","miracle","nebula",
-    "orchid","paradise","quicksand","rose","sapphire","treasure","unicorn","valley",
-    "whisper","xenon","zenith","daydream","firefly","kingdom","moonlight","starlight",
-    "utopia","velvet","zephyr","amethyst","cascade","flamingo","harvest","illusion",
-    "journey","lantern","nostalgia","opal","serenity","twilight","voyage","wanderlust"
-  ];
+  document.addEventListener("DOMContentLoaded", () => {
+    const words = [
+      "apple","banana","cherry","dragon","elephant","funny","guitar","happiness",
+      "island","jungle","kite","lemon","mountain","nectar","ocean","piano",
+      "rainbow","sunshine","tiger","umbrella","violet","waterfall","xylophone",
+      "yogurt","zebra","adventure","butterfly","candle","dolphin","emerald","feather",
+      "galaxy","horizon","infinity","jasmine","koala","lighthouse","miracle","nebula",
+      "orchid","paradise","quicksand","rose","sapphire","treasure","unicorn","valley",
+      "whisper","xenon","zenith","daydream","firefly","kingdom","moonlight","starlight",
+      "utopia","velvet","zephyr","amethyst","cascade","flamingo","harvest","illusion",
+      "journey","lantern","nostalgia","opal","serenity","twilight","voyage","wanderlust"
+    ];
 
-  let score = 0;
-  let strikes = 3;
-  let highScore = localStorage.getItem("reflexHighScore") || 0;
+    let score = 0;
+    let strikes = 3;
+    let highScore = localStorage.getItem("reflexHighScore") || 0;
 
-  const wordContainer = document.getElementById("word-container");
-  const scoreDisplay = document.getElementById("score");
-  const highScoreDisplay = document.getElementById("high-score");
-  const timerDisplay = document.getElementById("timer");
-  const finalScoreDisplay = document.getElementById("final-score");
-  const restartBtn = document.getElementById("restart-btn");
-  const strikesDisplay = document.getElementById("strikes");
+    const wordContainer = document.getElementById("word-container");
+    const scoreDisplay = document.getElementById("score");
+    const highScoreDisplay = document.getElementById("high-score");
+    const timerDisplay = document.getElementById("timer");
+    const finalScoreDisplay = document.getElementById("final-score");
+    const restartBtn = document.getElementById("restart-btn");
+    const startBtn = document.getElementById("start-btn");
+    const strikesDisplay = document.getElementById("strikes");
+    const instructionsBtn = document.getElementById("instructions");
+    const bgUpload = document.getElementById("bg-upload");
+    const bgLabel = document.querySelector('label[for="bg-upload"]');
 
-  let currentWord = "";
-  let typed = "";
-  let timeLeft = 5;
-  let wordTimeout = null;
-  let countdownInterval = null;
-  let gameOver = false;
+    let currentWord = "";
+    let typed = "";
+    let timeLeft = 5;
+    let wordTimeout = null;
+    let countdownInterval = null;
+    let gameOver = false;
 
-  highScoreDisplay.textContent = "High Score: " + highScore;
+    const cachedBg = localStorage.getItem("reflexBg");
+    if (cachedBg) {
+      document.body.style.backgroundImage = `url('${cachedBg}')`;
+    }
 
-  function updateStrikes() {
-    strikesDisplay.textContent = "Strikes: " + "X ".repeat(strikes);
-  }
+    highScoreDisplay.textContent = "High Score: " + highScore;
 
-  function renderWord() {
-    let html = "";
-    for (let i = 0; i < currentWord.length; i++) {
-      if (i < typed.length) {
-        if (typed[i] === currentWord[i]) {
-          html += `<span class="correct">${currentWord[i]}</span>`;
+    function updateStrikes() {
+      strikesDisplay.textContent = "Strikes: " + "X ".repeat(strikes);
+    }
+
+    function renderWord() {
+      let html = "";
+      for (let i = 0; i < currentWord.length; i++) {
+        if (i < typed.length) {
+          if (typed[i] === currentWord[i]) {
+            html += `<span class="correct">${currentWord[i]}</span>`;
+          } else {
+            html += `<span class="incorrect">${currentWord[i]}</span>`;
+          }
         } else {
-          html += `<span class="incorrect">${currentWord[i]}</span>`;
+          html += `<span>${currentWord[i]}</span>`;
         }
-      } else {
-        html += `<span>${currentWord[i]}</span>`;
       }
+      wordContainer.innerHTML = html;
     }
-    wordContainer.innerHTML = html;
-  }
 
-  function showWord() {
-    if (gameOver) return;
+    function showWord() {
+      if (gameOver) return;
 
-    currentWord = words[Math.floor(Math.random() * words.length)];
-    typed = "";
-    renderWord();
+      currentWord = words[Math.floor(Math.random() * words.length)];
+      typed = "";
+      renderWord();
 
-    timeLeft = Math.max(2, 5 - score * 0.2);
-    timerDisplay.textContent = `Time left: ${timeLeft.toFixed(1)}s`;
-
-    if (wordTimeout) clearTimeout(wordTimeout);
-    if (countdownInterval) clearInterval(countdownInterval);
-
-    countdownInterval = setInterval(() => {
-      timeLeft -= 0.1;
-      if (timeLeft <= 0) timeLeft = 0;
+      timeLeft = Math.max(2, 5 - score * 0.2);
       timerDisplay.textContent = `Time left: ${timeLeft.toFixed(1)}s`;
-    }, 100);
 
-    wordTimeout = setTimeout(() => {
-      if (typed === currentWord) {
-        score++;
-        scoreDisplay.textContent = "Score: " + score;
-      } else {
-        strikes--;
-        updateStrikes();
-        if (strikes <= 0) return endGame();
-      }
-      showWord();
-    }, timeLeft * 1000);
-  }
+      if (wordTimeout) clearTimeout(wordTimeout);
+      if (countdownInterval) clearInterval(countdownInterval);
 
-  function endGame() {
-    gameOver = true;
-    clearInterval(countdownInterval);
-    clearTimeout(wordTimeout);
-    finalScoreDisplay.textContent = `Game Over! Your final score: ${score}`;
-    restartBtn.style.display = "inline-block";
+      countdownInterval = setInterval(() => {
+        timeLeft -= 0.1;
+        if (timeLeft <= 0) timeLeft = 0;
+        timerDisplay.textContent = `Time left: ${timeLeft.toFixed(1)}s`;
+      }, 100);
 
-    if (score > highScore) {
-      highScore = score;
-      localStorage.setItem("reflexHighScore", highScore);
-      highScoreDisplay.textContent = "High Score: " + highScore;
-    }
-  }
-
-  document.addEventListener("keydown", (e) => {
-    if (gameOver) return;
-    if (e.key.length === 1 && e.key.match(/[a-z]/i)) {
-      typed += e.key.toLowerCase();
-      renderWord();
-
-      if (typed === currentWord) {
-        clearInterval(countdownInterval);
-        clearTimeout(wordTimeout);
-        score++;
-        scoreDisplay.textContent = "Score: " + score;
+      wordTimeout = setTimeout(() => {
+        if (typed === currentWord) {
+          score++;
+          scoreDisplay.textContent = "Score: " + score;
+        } else {
+          strikes--;
+          updateStrikes();
+          if (strikes <= 0) return endGame();
+        }
         showWord();
+      }, timeLeft * 1000);
+    }
+
+    function endGame() {
+      gameOver = true;
+      clearInterval(countdownInterval);
+      clearTimeout(wordTimeout);
+      finalScoreDisplay.textContent = `Game Over! Your final score: ${score}`;
+      restartBtn.style.display = "inline-block";
+
+      if (score > highScore) {
+        highScore = score;
+        localStorage.setItem("reflexHighScore", highScore);
+        highScoreDisplay.textContent = "High Score: " + highScore;
       }
     }
-    if (e.key === "Backspace") {
-      typed = typed.slice(0, -1);
-      renderWord();
+
+    function startGame() {
+      startBtn.style.display = "none";
+      instructionsBtn.style.display = "none";
+      scoreDisplay.style.display = "block";
+      highScoreDisplay.style.display = "block";
+      strikesDisplay.style.display = "block";
+      wordContainer.style.display = "block";
+      timerDisplay.style.display = "block";
+
+      
+      bgUpload.style.display = "none";
+      bgLabel.style.display = "none";
+
+      score = 0;
+      strikes = 3;
+      finalScoreDisplay.textContent = "";
+      gameOver = false;
+      restartBtn.style.display = "none";
+      updateStrikes();
+      scoreDisplay.textContent = "Score: 0";
+      showWord();
     }
-  });
 
-  restartBtn.addEventListener("click", () => {
-    score = 0;
-    strikes = 3;
-    scoreDisplay.textContent = "Score: 0";
-    finalScoreDisplay.textContent = "";
-    gameOver = false;
-    restartBtn.style.display = "none";
-    updateStrikes();
-    showWord();
-  });
+    
+    bgUpload.addEventListener("change", (e) => {
+      const file = e.target.files[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = function(evt) {
+          const dataURL = evt.target.result;
+          document.body.style.backgroundImage = `url('${dataURL}')`;
+          localStorage.setItem("reflexBg", dataURL);
+        };
+        reader.readAsDataURL(file);
+      }
+    });
 
-  updateStrikes();
-  showWord();
-});
+    document.addEventListener("keydown", (e) => {
+      if (gameOver) return;
+      if (e.key.length === 1 && e.key.match(/[a-z]/i)) {
+        typed += e.key.toLowerCase();
+        renderWord();
+
+        if (typed === currentWord) {
+          clearInterval(countdownInterval);
+          clearTimeout(wordTimeout);
+          score++;
+          scoreDisplay.textContent = "Score: " + score;
+          showWord();
+        }
+      }
+      if (e.key === "Backspace") {
+        typed = typed.slice(0, -1);
+        renderWord();
+      }
+    });
+
+    restartBtn.addEventListener("click", startGame);
+    startBtn.addEventListener("click", startGame);
+  });
 </script>
 </body>
 </html>
